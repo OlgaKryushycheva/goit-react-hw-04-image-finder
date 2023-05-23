@@ -5,5 +5,5 @@ export const Error = ({ error }) => {
 };
 
 Error.propTypes = {
-  onSearch: PropTypes.string.isRequired,
+  error: PropTypes.string.isRequired,
 };

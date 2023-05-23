@@ -1,101 +1,78 @@
-import { Component } from 'react';
+import { useState, useEffect } from 'react';
 import toast, { Toaster } from 'react-hot-toast';
 import { ImageGallery } from 'components/imageGallery';
 import { Searchbar } from 'components/searchbar';
 import { Button } from 'components/button';
 import { Loader } from 'components/loader';
 import { Error } from 'components/error';
-import { FetchFotos, per_page } from '../../servises/FetchFotos';
+import * as API from '../../servises/FetchFotos';
 import css from './App.module.css';
 
-export class App extends Component {
-  state = {
-    textSearch: '',
-    photos: [],
-    loading: false,
-    error: null,
-    page: 1,
-    endPhotos: false,
-  };
+export const App = () => {
+  const [textSearch, setTextSearch] = useState('');
+  const [photos, setPhotos] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [page, setPage] = useState(1);
+  const [endPhotos, setEndPhotos] = useState(false);
 
-  componentDidUpdate = (_, prevState) => {
-    const { textSearch, page, photos } = this.state;
-
-    if (prevState.textSearch !== textSearch || prevState.page !== page) {
-      this.setState({ loading: true });
-
-      FetchFotos(textSearch, page)
-        .then(responce => {
-          if (responce.hits.length === 0) {
-            return toast.error(`There is no photos with ${textSearch}`);
-          }
-
-          this.setState({
-            photos: [...photos, ...responce.hits],
-            endPhotos: responce.totalHits <= per_page * page,
-          });
-
-          // this.setState({
-          //   photos: [...photos, ...responce.hits],
-          // });
-
-          // const totalHits = per_page * page;
-          // if (responce.totalHits <= totalHits) {
-          //   this.setState({
-          //     endPhotos: true,
-          //   });
-          // }
-        })
-        .catch(error => {
-          this.setState({
-            error: error.message,
-          });
-        })
-        .finally(() => {
-          this.setState({ loading: false });
-        });
+  const handleSubmit = value => {
+    if (value !== textSearch) {
+      setTextSearch(value);
+      setPhotos([]);
+      setPage(1);
+      setEndPhotos(false);
     }
   };
 
-  handleSubmit = value => {
-    if (value !== this.state.textSearch) {
-      this.setState({
-        textSearch: value,
-        photos: [],
-        page: 1,
-        endPhotos: false,
+  useEffect(() => {
+    if (!textSearch) {
+      return;
+    }
+
+    setLoading(true);
+
+    API.fetchFotos(textSearch, page)
+      .then(responce => {
+        if (responce.hits.length === 0) {
+          return toast.error(`There is no photos with ${textSearch}`);
+        }
+
+        setPhotos(prevState => [...prevState, ...responce.hits]);
+        setEndPhotos(responce.totalHits <= API.PER_PAGE * page);
+      })
+      .catch(error => {
+        setError(error.message);
+      })
+      .finally(() => {
+        setLoading(false);
       });
-    }
+  }, [textSearch, page]);
+
+  const handleLoadMore = () => {
+    setPage(prevState => prevState + 1);
   };
 
-  handleLoadMore = () => {
-    this.setState(prev => ({ page: prev.page + 1 }));
-  };
+  return (
+    <div className={css.App}>
+      <Searchbar onSearch={handleSubmit} />
 
-  render() {
-    const { photos, loading, endPhotos, error } = this.state;
+      {error && <Error error={error} />}
 
-    return (
-      <div className={css.App}>
-        <Searchbar onSearch={this.handleSubmit} />
+      {loading && <Loader />}
 
-        {error && <Error error={error} />}
+      {photos.length > 0 && <ImageGallery photos={photos} />}
 
-        {loading && <Loader />}
+      {photos.length > 0 && !endPhotos && !loading && (
+        <Button onClick={handleLoadMore} />
+      )}
 
-        {photos.length > 0 && <ImageGallery photos={photos} />}
-
-        {photos.length > 0 && !endPhotos && (
-          <Button onClick={this.handleLoadMore} />
-        )}
-
-        <Toaster
-          position="top-right"
-          toastOptions={{
-            duration: 2000,
-          }}
-        />
-      </div>
-    );
-  }
-}
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 2000,
+        }}
+      />
+    </div>
+  );
+};
